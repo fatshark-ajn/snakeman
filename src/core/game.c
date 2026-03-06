@@ -134,36 +134,83 @@ void game_update(Game *game, const InputState *input, float fixed_dt) {
     game->tick_count += 1;
     game->fixed_steps += 1;
 
-    /* Run world simulation */
+    /* Apply powerup effects on scoring state each tick */
     {
-        Direction dir = input_to_direction(input->direction);
-        int world_event = world_update(&game->world, dir, fixed_dt);
+        PowerupType active = game->world.active_powerup.type;
 
-        switch (world_event) {
-            case WORLD_EVENT_PICKUP:
-                score_on_event(&game->score, SCORE_EVENT_PICKUP);
-                break;
-            case WORLD_EVENT_RISK_PICKUP:
-                score_on_event(&game->score, SCORE_EVENT_PICKUP);
-                score_on_event(&game->score, SCORE_EVENT_RISK_PICKUP);
-                break;
-            case WORLD_EVENT_POWERUP:
-                if (game->world.active_powerup.type == POWERUP_MAGNET) {
-                    score_on_event(&game->score, SCORE_EVENT_MAGNET_PICKUP);
-                }
-                break;
-            case WORLD_EVENT_PLAYER_DIED:
-                game->state = state_next(game->state, TRANSITION_EVENT_PLAYER_DIED);
-                return;
-            case WORLD_EVENT_ALL_CLEARED:
-                game->state = state_next(game->state, TRANSITION_EVENT_RUN_COMPLETE);
-                return;
-            default:
-                break;
+        /* Overclock: combo window = 2.5s while active */
+        if (active == POWERUP_OVERCLOCK) {
+            game->score.combo_default_window_sec = 2.5f;
+        } else {
+            /* Base 3.5s minus difficulty shrink (0.2s per milestone, floor 2.2s) */
+            float base_window = 3.5f - game->world.combo_window_shrink;
+            if (base_window < 2.2f) base_window = 2.2f;
+            game->score.combo_default_window_sec = base_window;
+        }
+
+        /* Multiplier Orb: extend combo cap by +0.5 */
+        if (active == POWERUP_MULTIPLIER_ORB) {
+            game->score.combo_cap = 4.5f;
+        } else {
+            game->score.combo_cap = 4.0f;
         }
     }
 
-    score_update(&game->score, fixed_dt);
+    /* Run world simulation */
+    {
+        Direction dir = input_to_direction(input->direction);
+        int ev = world_update(&game->world, dir, fixed_dt);
+
+        if (ev & WORLD_EVENT_PLAYER_DIED) {
+            game->state = state_next(game->state, TRANSITION_EVENT_PLAYER_DIED);
+            return;
+        }
+
+        if (ev & WORLD_EVENT_PICKUP) {
+            /* Multiplier Orb: save/restore multiplier to freeze it */
+            float saved_mult = game->score.combo_multiplier;
+            int orb_active = (game->world.active_powerup.type == POWERUP_MULTIPLIER_ORB);
+
+            score_on_event(&game->score, SCORE_EVENT_PICKUP);
+
+            if (orb_active) {
+                /* Freeze: restore multiplier to pre-pickup value
+                   (the pickup still scores at the frozen multiplier because
+                    pickup_points() reads the multiplier before increment) */
+                game->score.combo_multiplier = saved_mult;
+                /* But keep max_combo_multiplier updated */
+                if (saved_mult > game->score.max_combo_multiplier) {
+                    game->score.max_combo_multiplier = saved_mult;
+                }
+            }
+
+            if (ev & WORLD_EVENT_RISK_PICKUP) {
+                score_on_event(&game->score, SCORE_EVENT_RISK_PICKUP);
+            }
+            if (ev & WORLD_EVENT_MAGNET_PICKUP) {
+                score_on_event(&game->score, SCORE_EVENT_MAGNET_PICKUP);
+            }
+            if (ev & WORLD_EVENT_EMP_PICKUP) {
+                score_on_event(&game->score, SCORE_EVENT_EMP_PICKUP);
+            }
+        }
+
+        if (ev & WORLD_EVENT_ALL_CLEARED) {
+            /* Unused shield bonus: +100 */
+            if (game->world.player.has_shield) {
+                score_on_event(&game->score, SCORE_EVENT_UNUSED_SHIELD);
+            }
+            game->state = state_next(game->state, TRANSITION_EVENT_RUN_COMPLETE);
+            return;
+        }
+    }
+
+    /* Multiplier Orb: freeze combo timer (don't let it decay) */
+    if (game->world.active_powerup.type == POWERUP_MULTIPLIER_ORB) {
+        /* Skip normal combo decay — keep timer and multiplier frozen */
+    } else {
+        score_update(&game->score, fixed_dt);
+    }
 
     game->second_fraction += fixed_dt;
     while (game->second_fraction >= 1.0f) {

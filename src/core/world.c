@@ -342,6 +342,7 @@ void world_init(World *w, uint32_t seed) {
     w->rng_state = seed != 0 ? seed : 42;
     w->robot_speed_scale = 1.0f;
     w->difficulty_milestone = 0;
+    w->combo_window_shrink = 0.0f;
 
     maze_generate(&w->maze, seed);
 
@@ -420,7 +421,8 @@ static int check_robot_collision(const World *w) {
     return 0;
 }
 
-/* Apply dynamic difficulty at 25% milestones */
+/* Apply dynamic difficulty at 25% milestones.
+   Per design doc: robot speed +5%, combo timer shrinks 0.2s (floor 2.2s). */
 static void check_difficulty(World *w, int pickups_collected) {
     int threshold;
     int i;
@@ -439,13 +441,51 @@ static void check_difficulty(World *w, int pickups_collected) {
             if (new_interval < min_interval) new_interval = min_interval;
             w->robots[i].move_interval = new_interval;
         }
+
+        /* Combo timer shrinks by 0.2s per milestone, floor 2.2s */
+        w->combo_window_shrink = (float)w->difficulty_milestone * 0.2f;
+    }
+}
+
+/* Magnet: attract nearby pickups toward the player's path.
+   Moves each active pickup one tile closer to the player head per call
+   if within MAGNET_RADIUS manhattan distance. */
+#define MAGNET_RADIUS 5
+
+static void magnet_attract(World *w) {
+    int i;
+    GridPos head = w->player.segments[0];
+    for (i = 0; i < w->pickup_count; ++i) {
+        int dx, dy, adx, ady;
+        GridPos np;
+        if (!w->pickups[i].active) continue;
+        if (manhattan_dist(w->pickups[i].pos, head) > MAGNET_RADIUS) continue;
+        /* Already on player head — will be collected this tick */
+        if (w->pickups[i].pos.x == head.x && w->pickups[i].pos.y == head.y) continue;
+
+        dx = head.x - w->pickups[i].pos.x;
+        dy = head.y - w->pickups[i].pos.y;
+        adx = dx < 0 ? -dx : dx;
+        ady = dy < 0 ? -dy : dy;
+
+        /* Move one step along the axis with greater distance */
+        np = w->pickups[i].pos;
+        if (adx >= ady) {
+            np.x += (dx > 0) ? 1 : -1;
+        } else {
+            np.y += (dy > 0) ? 1 : -1;
+        }
+
+        /* Only move if target tile is walkable */
+        if (maze_is_walkable(&w->maze, np.x, np.y)) {
+            w->pickups[i].pos = np;
+        }
     }
 }
 
 int world_update(World *w, Direction input_dir, float dt) {
     int i;
-    int event = WORLD_EVENT_NONE;
-    int pickups_collected;
+    int events = WORLD_EVENT_NONE;
     GridPos head;
     int robot_nearby;
     float emp_slow;
@@ -462,18 +502,26 @@ int world_update(World *w, Direction input_dir, float dt) {
 
     /* Update active powerup */
     if (w->active_powerup.type != POWERUP_NONE) {
-        w->active_powerup.timer -= dt;
-        if (w->active_powerup.timer <= 0.0f) {
-            /* Deactivate powerup effects */
-            if (w->active_powerup.type == POWERUP_OVERCLOCK) {
-                w->player.move_interval = w->player.base_move_interval;
+        /* Shield is consumed on hit, not by timer */
+        if (w->active_powerup.type != POWERUP_SHIELD) {
+            w->active_powerup.timer -= dt;
+            if (w->active_powerup.timer <= 0.0f) {
+                /* Deactivate powerup effects */
+                if (w->active_powerup.type == POWERUP_OVERCLOCK) {
+                    w->player.move_interval = w->player.base_move_interval;
+                }
+                w->active_powerup.type = POWERUP_NONE;
+                w->active_powerup.timer = 0.0f;
             }
-            w->active_powerup.type = POWERUP_NONE;
-            w->active_powerup.timer = 0.0f;
         }
     }
 
     emp_slow = (w->active_powerup.type == POWERUP_EMP) ? 1.4f : 1.0f;
+
+    /* Magnet attraction: pull nearby pickups toward player once per player step */
+    if (w->active_powerup.type == POWERUP_MAGNET) {
+        magnet_attract(w);
+    }
 
     /* Player movement */
     w->player.move_timer += dt;
@@ -496,6 +544,11 @@ int world_update(World *w, Direction input_dir, float dt) {
     if (check_robot_collision(w)) {
         if (w->player.has_shield) {
             w->player.has_shield = 0;
+            /* Shield consumed — deactivate the shield powerup */
+            if (w->active_powerup.type == POWERUP_SHIELD) {
+                w->active_powerup.type = POWERUP_NONE;
+                w->active_powerup.timer = 0.0f;
+            }
         } else {
             w->player.alive = 0;
             return WORLD_EVENT_PLAYER_DIED;
@@ -512,16 +565,20 @@ int world_update(World *w, Direction input_dir, float dt) {
         }
     }
 
-    pickups_collected = 0;
     for (i = 0; i < w->pickup_count; ++i) {
         if (w->pickups[i].active && w->pickups[i].pos.x == head.x && w->pickups[i].pos.y == head.y) {
             w->pickups[i].active = 0;
             w->player.grow_pending++;
-            event = WORLD_EVENT_PICKUP;
-            pickups_collected++;
+            events |= WORLD_EVENT_PICKUP;
 
             if (robot_nearby) {
-                event = WORLD_EVENT_RISK_PICKUP;
+                events |= WORLD_EVENT_RISK_PICKUP;
+            }
+            if (w->active_powerup.type == POWERUP_MAGNET) {
+                events |= WORLD_EVENT_MAGNET_PICKUP;
+            }
+            if (w->active_powerup.type == POWERUP_EMP) {
+                events |= WORLD_EVENT_EMP_PICKUP;
             }
         }
     }
@@ -541,7 +598,8 @@ int world_update(World *w, Direction input_dir, float dt) {
                     break;
                 case POWERUP_SHIELD:
                     w->player.has_shield = 1;
-                    w->active_powerup.timer = 999.0f; /* Until hit */
+                    /* Shield has no timer — lasts until consumed by hit */
+                    w->active_powerup.timer = 0.0f;
                     break;
                 case POWERUP_OVERCLOCK:
                     w->active_powerup.timer = 6.0f;
@@ -554,9 +612,7 @@ int world_update(World *w, Direction input_dir, float dt) {
                     break;
             }
 
-            if (event == WORLD_EVENT_NONE) {
-                event = WORLD_EVENT_POWERUP;
-            }
+            events |= WORLD_EVENT_POWERUP;
         }
     }
 
@@ -567,7 +623,8 @@ int world_update(World *w, Direction input_dir, float dt) {
             if (w->pickups[i].active) remaining++;
         }
         if (remaining == 0 && w->pickup_count > 0) {
-            return WORLD_EVENT_ALL_CLEARED;
+            /* Include unused-shield bonus flag via ALL_CLEARED */
+            return events | WORLD_EVENT_ALL_CLEARED;
         }
 
         /* Dynamic difficulty */
@@ -577,5 +634,5 @@ int world_update(World *w, Direction input_dir, float dt) {
         }
     }
 
-    return event;
+    return events;
 }

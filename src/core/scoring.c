@@ -77,6 +77,18 @@ void score_on_event(ScoreState *score, ScoreEventType event) {
             score->score += bonus;
             break;
         }
+        case SCORE_EVENT_EMP_PICKUP: {
+            /* +20% of the last pickup's awarded points */
+            uint32_t base = score->last_pickup_points > 0
+                ? score->last_pickup_points
+                : pickup_points(score);
+            uint32_t bonus = (uint32_t)(base * 0.2f + 0.5f);
+            score->score += bonus;
+            break;
+        }
+        case SCORE_EVENT_UNUSED_SHIELD:
+            score->score += 100;
+            break;
         case SCORE_EVENT_NONE:
         default:
             break;

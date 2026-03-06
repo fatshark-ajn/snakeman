@@ -33,7 +33,9 @@ typedef enum {
     SCORE_EVENT_PICKUP,
     SCORE_EVENT_SURVIVAL_SECOND,
     SCORE_EVENT_MAGNET_PICKUP,
-    SCORE_EVENT_RISK_PICKUP
+    SCORE_EVENT_RISK_PICKUP,
+    SCORE_EVENT_EMP_PICKUP,       /* +20% on pickup while EMP active */
+    SCORE_EVENT_UNUSED_SHIELD     /* +100 at end of level */
 } ScoreEventType;
 
 void score_init(ScoreState *score);

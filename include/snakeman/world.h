@@ -131,21 +131,24 @@ typedef struct {
     uint32_t rng_state;
     int difficulty_milestone;   /* 0-4, tracks 25% thresholds */
     float robot_speed_scale;    /* multiplier on robot speed */
+    float combo_window_shrink;  /* total combo window reduction from difficulty */
 } World;
 
 /* Initialize the world for a new run */
 void world_init(World *w, uint32_t seed);
 
 /* Advance world simulation by one fixed tick.
-   Returns a game event (e.g. PLAYER_DIED, PICKUP_COLLECTED, etc.) */
+   Returns a bitmask of WORLD_EVENT_* flags. */
 int world_update(World *w, Direction input_dir, float dt);
 
-/* Game events returned by world_update */
+/* Game events returned by world_update (bitmask) */
 #define WORLD_EVENT_NONE            0
-#define WORLD_EVENT_PICKUP          1
-#define WORLD_EVENT_POWERUP         2
-#define WORLD_EVENT_PLAYER_DIED     3
-#define WORLD_EVENT_ALL_CLEARED     4
-#define WORLD_EVENT_RISK_PICKUP     5
+#define WORLD_EVENT_PICKUP          (1 << 0)
+#define WORLD_EVENT_POWERUP         (1 << 1)
+#define WORLD_EVENT_PLAYER_DIED     (1 << 2)
+#define WORLD_EVENT_ALL_CLEARED     (1 << 3)
+#define WORLD_EVENT_RISK_PICKUP     (1 << 4)
+#define WORLD_EVENT_MAGNET_PICKUP   (1 << 5)
+#define WORLD_EVENT_EMP_PICKUP      (1 << 6)
 
 #endif
