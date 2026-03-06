@@ -213,6 +213,17 @@ void test_game_survival_awards_multiple_seconds_for_large_dt_spec(void);
 void test_game_pause_freezes_score_timers(void);
 void test_game_over_screen_has_minimum_lock_before_highscores_spec(void);
 
+/* ---- test_world.c ---- */
+void test_self_collision_single_segment_no_death(void);
+void test_self_collision_straight_line_no_death(void);
+void test_self_collision_head_hits_body_causes_death(void);
+void test_self_collision_with_shield_still_kills(void);
+void test_self_collision_during_growth(void);
+void test_no_self_collision_when_tail_vacates(void);
+void test_self_collision_stops_further_events(void);
+void test_self_collision_two_segment_turn_no_death(void);
+void test_self_collision_reversal_blocked(void);
+
 /* ---- test_game_extended.c ---- */
 void test_game_init_null_game_is_safe(void);
 void test_game_init_null_config_is_safe(void);
@@ -471,6 +482,17 @@ int main(void) {
     RUN_TEST(test_highscore_stress_100_descending_inserts);
     RUN_TEST(test_highscore_stress_alternating_inserts);
     RUN_TEST(test_highscore_invariant_sorted_descending);
+
+    /* ========== World: Self-Collision ========== */
+    RUN_TEST(test_self_collision_single_segment_no_death);
+    RUN_TEST(test_self_collision_straight_line_no_death);
+    RUN_TEST(test_self_collision_head_hits_body_causes_death);
+    RUN_TEST(test_self_collision_with_shield_still_kills);
+    RUN_TEST(test_self_collision_during_growth);
+    RUN_TEST(test_no_self_collision_when_tail_vacates);
+    RUN_TEST(test_self_collision_stops_further_events);
+    RUN_TEST(test_self_collision_two_segment_turn_no_death);
+    RUN_TEST(test_self_collision_reversal_blocked);
 
     /* ========== Game Integration: Original ========== */
     RUN_TEST(test_game_init_sets_title_and_resets_counters);

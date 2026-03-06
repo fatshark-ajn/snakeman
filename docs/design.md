@@ -51,7 +51,9 @@ This document consolidates the current game design decisions for Snakeman, inclu
 
 - Robot collision causes immediate death in baseline rules.
 - Shield powerup can consume one collision instead of ending run.
-- Self-collision can be deferred or enabled as a harder mode.
+- Self-collision (head overlaps any body segment) causes immediate death.
+  - Only checked when player length > 1 (single-segment snake cannot self-collide).
+  - Shield does **not** protect against self-collision.
 
 ## Hostile Robots
 
@@ -244,6 +246,7 @@ Recommended minimal playable v1 includes:
 - procedural maze,
 - constant forward movement,
 - growth from pickups,
+- self-collision death,
 - 4 simple-steering robots,
 - scoring + combo,
 - game-over breakdown,
@@ -252,6 +255,5 @@ Recommended minimal playable v1 includes:
 Potential post-v1 additions:
 
 - robot personality variants,
-- self-collision hard mode,
 - richer UI and audiovisual feedback,
 - online leaderboard support.

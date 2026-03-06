@@ -421,6 +421,20 @@ static int check_robot_collision(const World *w) {
     return 0;
 }
 
+/* Check collision between player head and own body segments.
+   Only meaningful when length > 1.  Shield does NOT protect. */
+static int check_self_collision(const Player *p) {
+    int i;
+    if (p->length <= 1) return 0;
+    for (i = 1; i < p->length; ++i) {
+        if (p->segments[0].x == p->segments[i].x &&
+            p->segments[0].y == p->segments[i].y) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Apply dynamic difficulty at 25% milestones.
    Per design doc: robot speed +5%, combo timer shrinks 0.2s (floor 2.2s). */
 static void check_difficulty(World *w, int pickups_collected) {
@@ -553,6 +567,12 @@ int world_update(World *w, Direction input_dir, float dt) {
             w->player.alive = 0;
             return WORLD_EVENT_PLAYER_DIED;
         }
+    }
+
+    /* Check self-collision (shield does NOT protect) */
+    if (check_self_collision(&w->player)) {
+        w->player.alive = 0;
+        return WORLD_EVENT_PLAYER_DIED;
     }
 
     /* Check pickup collection */
