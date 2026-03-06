@@ -337,13 +337,13 @@ static SDL_Texture *get_body_tex(const Assets *a, Direction from, Direction to) 
     }
     /* Turns: determine which corner piece */
     if ((from == DIR_UP && to == DIR_RIGHT) || (from == DIR_LEFT && to == DIR_DOWN))
-        return a->textures[TEX_BODY_TURN_UR];
-    if ((from == DIR_RIGHT && to == DIR_DOWN) || (from == DIR_UP && to == DIR_LEFT))
-        return a->textures[TEX_BODY_TURN_RD];
-    if ((from == DIR_DOWN && to == DIR_LEFT) || (from == DIR_RIGHT && to == DIR_UP))
-        return a->textures[TEX_BODY_TURN_DL];
-    if ((from == DIR_LEFT && to == DIR_UP) || (from == DIR_DOWN && to == DIR_RIGHT))
         return a->textures[TEX_BODY_TURN_LU];
+    if ((from == DIR_RIGHT && to == DIR_DOWN) || (from == DIR_UP && to == DIR_LEFT))
+        return a->textures[TEX_BODY_TURN_UR];
+    if ((from == DIR_DOWN && to == DIR_LEFT) || (from == DIR_RIGHT && to == DIR_UP))
+        return a->textures[TEX_BODY_TURN_RD];
+    if ((from == DIR_LEFT && to == DIR_UP) || (from == DIR_DOWN && to == DIR_RIGHT))
+        return a->textures[TEX_BODY_TURN_DL];
 
     /* Fallback */
     return a->textures[TEX_BODY_H];
@@ -370,7 +370,17 @@ static void render_player(SDL_Renderer *r, const Assets *a, const Player *p, int
     if (p->length > 1) {
         SDL_Texture *tex = NULL;
         int tail = p->length - 1;
-        get_tail_tex(a, p->seg_dirs[tail], anim_frame, &tex);
+        /* Derive tail direction from actual positions: the tail tip points
+           away from the preceding segment, so compute the direction from
+           segment tail-1 toward the tail (i.e. away from the body). */
+        int dx = p->segments[tail].x - p->segments[tail - 1].x;
+        int dy = p->segments[tail].y - p->segments[tail - 1].y;
+        Direction tail_dir;
+        if      (dx > 0) tail_dir = DIR_RIGHT;
+        else if (dx < 0) tail_dir = DIR_LEFT;
+        else if (dy > 0) tail_dir = DIR_DOWN;
+        else             tail_dir = DIR_UP;
+        get_tail_tex(a, tail_dir, anim_frame, &tex);
         draw_tile(r, tex, p->segments[tail].x, p->segments[tail].y);
     }
 }
