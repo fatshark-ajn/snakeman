@@ -163,9 +163,12 @@ static void draw_char(SDL_Renderer *r, char c, int x, int y, int scale) {
         ['N'] = 0x5B6D, ['O'] = 0x7B6F, ['P'] = 0x7BC4, ['Q'] = 0x7B7B,
         ['R'] = 0x7BEB, ['S'] = 0x79CF, ['T'] = 0x7492, ['U'] = 0x5B6F,
         ['V'] = 0x5B52, ['W'] = 0x5BFF, ['X'] = 0x5AAD, ['Y'] = 0x5A92,
+        ['J'] = 0x24AF, ['Z'] = 0x724F,
         [':'] = 0x0820, ['.'] = 0x0002, [' '] = 0x0000, ['!'] = 0x2482,
         ['-'] = 0x01C0, ['+'] = 0x05D0, ['#'] = 0x5F5F,
         ['x'] = 0x0AAA, ['%'] = 0x532D,
+        ['<'] = 0x2A22, ['>'] = 0x22A2, ['/'] = 0x1248,
+        ['('] = 0x2922, [')'] = 0x2494, ['_'] = 0x0007,
     };
     uint16_t g;
     int row, col;
@@ -502,6 +505,7 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
     char buf[64];
     int i;
     int y_start;
+    int row_h = 42;
 
     if (a->textures[TEX_UI_HIGHSCORES]) {
         SDL_RenderCopy(r, a->textures[TEX_UI_HIGHSCORES], NULL, NULL);
@@ -511,53 +515,83 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
     }
 
     SDL_SetRenderDrawColor(r, 200, 100, 255, 255);
-    draw_string(r, "HIGH SCORES", 420, 60, 4);
+    draw_string(r, "HIGH SCORES", 420, 40, 4);
 
     /* New high score badge */
     if (game->last_run_rank == 0 && a->textures[TEX_UI_NEW_HIGH]) {
-        draw_tex(r, a->textures[TEX_UI_NEW_HIGH], 384, 110, 512, 128);
+        draw_tex(r, a->textures[TEX_UI_NEW_HIGH], 384, 85, 512, 48);
     } else if (game->last_run_rank == 0) {
         SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
-        draw_string(r, "NEW HIGH SCORE!", 420, 120, 3);
+        draw_string(r, "NEW HIGH SCORE!", 440, 95, 3);
     }
 
-    y_start = 170;
+    /* Column headers */
+    y_start = 140;
+    SDL_SetRenderDrawColor(r, 120, 100, 140, 255);
+    draw_string(r, "RANK", 200, y_start, 2);
+    draw_string(r, "SCORE", 400, y_start, 2);
+    draw_string(r, "TIME", 650, y_start, 2);
+    draw_string(r, "DOTS", 830, y_start, 2);
+
+    y_start += 28;
     for (i = 0; i < 10; ++i) {
-        int y = y_start + i * 40;
+        int y = y_start + i * row_h;
         int is_current = (i == game->last_run_rank);
 
+        /* Highlight bar behind current rank */
         if (is_current) {
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(r, 0, 255, 200, 40);
+            {
+                SDL_Rect highlight = {180, y - 2, 780, row_h - 2};
+                SDL_RenderFillRect(r, &highlight);
+            }
             SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
         } else {
             SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
         }
 
+        /* Rank number */
         snprintf(buf, sizeof(buf), "%2d.", i + 1);
-        draw_string(r, buf, 300, y, 3);
+        draw_string(r, buf, 210, y, 3);
 
         if (game->highscores.entries[i].score > 0) {
+            /* Score */
             uint_to_str(buf, sizeof(buf), game->highscores.entries[i].score);
-            draw_string(r, buf, 420, y, 3);
+            draw_string(r, buf, 400, y, 3);
 
-            snprintf(buf, sizeof(buf), "%ds", (int)game->highscores.entries[i].time_sec);
-            SDL_SetRenderDrawColor(r, is_current ? 0u : 120u,
-                                       is_current ? 200u : 120u,
-                                       is_current ? 180u : 120u, 255);
-            draw_string(r, buf, 650, y, 2);
+            /* Time */
+            {
+                uint32_t t = game->highscores.entries[i].time_sec;
+                snprintf(buf, sizeof(buf), "%d:%02d", (int)(t / 60), (int)(t % 60));
+            }
+            if (!is_current) {
+                SDL_SetRenderDrawColor(r, 140, 140, 160, 255);
+            }
+            draw_string(r, buf, 650, y + 2, 2);
 
-            snprintf(buf, sizeof(buf), "%dP", (int)game->highscores.entries[i].pickups);
-            draw_string(r, buf, 800, y, 2);
+            /* Pickups */
+            snprintf(buf, sizeof(buf), "%d", (int)game->highscores.entries[i].pickups);
+            draw_string(r, buf, 840, y + 2, 2);
+
+            /* Pointer for current run */
+            if (is_current) {
+                SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
+                draw_string(r, "<", 960, y, 3);
+            }
         } else {
-            draw_string(r, "---", 420, y, 3);
-        }
-
-        if (is_current) {
-            draw_string(r, "<", 920, y, 3);
+            SDL_SetRenderDrawColor(r, 80, 80, 100, 255);
+            draw_string(r, "---", 400, y, 3);
         }
     }
 
-    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
-    draw_string(r, "R RESTART  Q QUIT", 430, 590 + y_start - 170, 2);
+    /* Instructions */
+    {
+        int bot_y = y_start + 10 * row_h + 8;
+        if (bot_y > 670) bot_y = 670;
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        draw_string(r, "ENTER RESTART   Q QUIT", 380, bot_y, 2);
+    }
 }
 
 /* ------------------------------------------------------------------ */

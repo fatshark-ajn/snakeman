@@ -117,11 +117,16 @@ void game_update(Game *game, const InputState *input, float fixed_dt) {
         game->game_over_timer += fixed_dt;
         if (game->game_over_timer >= 0.2f) {
             game->state = state_next(game->state, TRANSITION_EVENT_SHOW_HIGHSCORES);
+            /* Finalize score on transition to HIGHSCORES */
+            if (game->state == GAME_STATE_HIGHSCORES) {
+                ScoreEntry entry = score_finalize_run(&game->score, game->run_time_sec, game->seed);
+                game->last_run_rank = highscore_try_insert(&game->highscores, entry);
+            }
         }
         return;
     }
 
-    /* On transition to HIGHSCORES, finalize and insert score */
+    /* Also finalize if we reach HIGHSCORES via RUN_COMPLETE (all pickups cleared) */
     if (game->state == GAME_STATE_HIGHSCORES && prev_state != GAME_STATE_HIGHSCORES) {
         ScoreEntry entry = score_finalize_run(&game->score, game->run_time_sec, game->seed);
         game->last_run_rank = highscore_try_insert(&game->highscores, entry);
