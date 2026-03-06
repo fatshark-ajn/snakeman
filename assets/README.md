@@ -4,9 +4,13 @@ This folder contains PNG-only placeholder assets in an 80s neo-arcade retro styl
 
 ## Visual Direction
 
-- Neon-forward palette: cyan/teal primary, hot red danger, amber highlights, deep navy shadows.
+- **Environment tiles**: Forest/woodland nature palette — mossy stone walls, dark dirt floors
+  with grass and pebble detail, thorny bramble hazards, earthy greens and browns.
+- **Sprites/powerups**: Retain vivid arcade-style colors for gameplay readability (bush-viper
+  teal/green snake, gold pickups, colorful powerup orbs).
+- **HUD/UI render colors**: Warm earthy tones — leafy greens, amber/gold highlights,
+  dark wood/earth backgrounds instead of neon cyan/navy.
 - High-contrast silhouette readability for fast top-down gameplay.
-- Subtle CRT flavor via light scanline/noise treatment.
 
 ## Naming and Animation
 

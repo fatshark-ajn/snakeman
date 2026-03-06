@@ -433,18 +433,18 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
     /* Dark HUD bar */
     {
         SDL_Rect bar = {0, MAZE_ROWS * TILE_SIZE, MAZE_COLS * TILE_SIZE, 720 - MAZE_ROWS * TILE_SIZE};
-        SDL_SetRenderDrawColor(r, 10, 10, 20, 255);
+        SDL_SetRenderDrawColor(r, 15, 12, 8, 255);
         SDL_RenderFillRect(r, &bar);
     }
 
     /* Score */
-    SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
+    SDL_SetRenderDrawColor(r, 100, 200, 80, 255);
     draw_string(r, "SCORE", 8, y, 2);
     uint_to_str(buf, sizeof(buf), game->score.score);
     draw_string(r, buf, 76, y, 2);
 
     /* Combo */
-    SDL_SetRenderDrawColor(r, 255, 200, 0, 255);
+    SDL_SetRenderDrawColor(r, 220, 180, 60, 255);
     {
         int combo_int = (int)(game->score.combo_multiplier * 10.0f + 0.5f);
         snprintf(buf, sizeof(buf), "x%d.%d", combo_int / 10, combo_int % 10);
@@ -464,7 +464,7 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
     }
 
     /* Time */
-    SDL_SetRenderDrawColor(r, 150, 150, 255, 255);
+    SDL_SetRenderDrawColor(r, 130, 170, 130, 255);
     snprintf(buf, sizeof(buf), "TIME %d", (int)game->run_time_sec);
     draw_string(r, buf, 580, y, 2);
 
@@ -479,12 +479,12 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
             case POWERUP_MULTIPLIER_ORB: pname = "MULTI"; break;
             default: break;
         }
-        SDL_SetRenderDrawColor(r, 255, 100, 255, 255);
+        SDL_SetRenderDrawColor(r, 200, 150, 60, 255);
         draw_string(r, pname, 790, y, 2);
     }
 
     /* Length */
-    SDL_SetRenderDrawColor(r, 100, 255, 100, 255);
+    SDL_SetRenderDrawColor(r, 80, 180, 70, 255);
     snprintf(buf, sizeof(buf), "LEN %d", game->world.player.length);
     draw_string(r, buf, 990, y, 2);
 }
@@ -530,19 +530,19 @@ static void render_title(SDL_Renderer *r, const Assets *a) {
     if (a->textures[TEX_UI_TITLE]) {
         SDL_RenderCopy(r, a->textures[TEX_UI_TITLE], NULL, NULL);
     } else {
-        SDL_SetRenderDrawColor(r, 20, 28, 44, 255);
+        SDL_SetRenderDrawColor(r, 15, 20, 12, 255);
         SDL_RenderClear(r);
     }
 
     /* Title text overlay */
-    SDL_SetRenderDrawColor(r, 0, 255, 220, 255);
+    SDL_SetRenderDrawColor(r, 120, 210, 90, 255);
     draw_string_centered(r, "SNAKEMAN", 160, 5);
 
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
     draw_string_centered(r, "PRESS ENTER TO START", 310, 3);
     draw_string_centered(r, "Q TO QUIT", 380, 2);
 
-    SDL_SetRenderDrawColor(r, 100, 100, 120, 255);
+    SDL_SetRenderDrawColor(r, 90, 90, 70, 255);
     draw_string_centered(r, "WASD OR ARROWS TO MOVE", 460, 2);
     draw_string_centered(r, "P TO PAUSE  R TO RESTART", 490, 2);
 
@@ -569,7 +569,7 @@ static void render_paused(SDL_Renderer *r, const Assets *a, const Game *game, in
         SDL_RenderCopy(r, a->textures[TEX_UI_PAUSED], NULL, NULL);
     }
 
-    SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
+    SDL_SetRenderDrawColor(r, 220, 200, 60, 255);
     draw_string_centered(r, "PAUSED", 280, 4);
 
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
@@ -583,11 +583,11 @@ static void render_game_over(SDL_Renderer *r, const Assets *a, const Game *game)
     if (a->textures[TEX_UI_GAME_OVER]) {
         SDL_RenderCopy(r, a->textures[TEX_UI_GAME_OVER], NULL, NULL);
     } else {
-        SDL_SetRenderDrawColor(r, 40, 10, 10, 255);
+        SDL_SetRenderDrawColor(r, 30, 15, 10, 255);
         SDL_RenderClear(r);
     }
 
-    SDL_SetRenderDrawColor(r, 255, 60, 60, 255);
+    SDL_SetRenderDrawColor(r, 200, 70, 50, 255);
     draw_string_centered(r, "GAME OVER", 140, 4);
 
     /* Score as combined label + value, centered */
@@ -631,17 +631,17 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
 
     /* Dark background — ignore baked-in panel PNG to avoid misaligned bars */
     (void)a;
-    SDL_SetRenderDrawColor(r, 18, 14, 28, 255);
+    SDL_SetRenderDrawColor(r, 14, 18, 12, 255);
     SDL_RenderClear(r);
 
-    SDL_SetRenderDrawColor(r, 200, 100, 255, 255);
+    SDL_SetRenderDrawColor(r, 180, 160, 80, 255);
     draw_string_centered(r, "HIGH SCORES", 30, 3);
 
     /* New high score badge */
     if (game->last_run_rank == 0 && a->textures[TEX_UI_NEW_HIGH]) {
         draw_tex(r, a->textures[TEX_UI_NEW_HIGH], (1280 - 512) / 2, 65, 512, 48);
     } else if (game->last_run_rank == 0) {
-        SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
+        SDL_SetRenderDrawColor(r, 220, 200, 60, 255);
         draw_string_centered(r, "NEW HIGH SCORE!", 75, 2);
     }
 
@@ -658,14 +658,14 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
 
         /* Column headers */
         y_start = 120;
-        SDL_SetRenderDrawColor(r, 160, 140, 180, 255);
+        SDL_SetRenderDrawColor(r, 150, 140, 110, 255);
         draw_string(r, "RANK", col_rank + 10, y_start, 2);
         draw_string(r, "SCORE", col_score, y_start, 2);
         draw_string(r, "TIME", col_time, y_start, 2);
         draw_string(r, "DOTS", col_dots, y_start, 2);
 
         /* Thin separator line under headers */
-        SDL_SetRenderDrawColor(r, 80, 60, 100, 255);
+        SDL_SetRenderDrawColor(r, 60, 55, 40, 255);
         {
             SDL_Rect sep = {tbl_x, y_start + 18, tbl_w, 1};
             SDL_RenderFillRect(r, &sep);
@@ -686,29 +686,29 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
                 SDL_Rect row_bg = {tbl_x - 4, y + 2, tbl_w + 8, row_h - 4};
                 if (is_current) {
                     /* Highlighted current-run row */
-                    SDL_SetRenderDrawColor(r, 0, 255, 200, 50);
+                    SDL_SetRenderDrawColor(r, 100, 200, 80, 50);
                     SDL_RenderFillRect(r, &row_bg);
                     /* Border for current row */
-                    SDL_SetRenderDrawColor(r, 0, 255, 200, 120);
+                    SDL_SetRenderDrawColor(r, 100, 200, 80, 120);
                     SDL_RenderDrawRect(r, &row_bg);
                 } else if (has_score) {
                     /* Populated row — subtle dark bar */
-                    SDL_SetRenderDrawColor(r, 40, 35, 60, 180);
+                    SDL_SetRenderDrawColor(r, 30, 28, 20, 180);
                     SDL_RenderFillRect(r, &row_bg);
                 } else {
                     /* Empty row — very dim */
-                    SDL_SetRenderDrawColor(r, 30, 25, 45, 120);
+                    SDL_SetRenderDrawColor(r, 22, 20, 15, 120);
                     SDL_RenderFillRect(r, &row_bg);
                 }
             }
 
             /* Text color */
             if (is_current) {
-                SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
+                SDL_SetRenderDrawColor(r, 100, 200, 80, 255);
             } else if (has_score) {
                 SDL_SetRenderDrawColor(r, 210, 210, 220, 255);
             } else {
-                SDL_SetRenderDrawColor(r, 70, 65, 90, 255);
+                SDL_SetRenderDrawColor(r, 55, 50, 38, 255);
             }
 
             /* Rank number */
@@ -730,7 +730,7 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
                     snprintf(buf, sizeof(buf), "%d:%02d", (int)(t / 60), (int)(t % 60));
                 }
                 if (!is_current) {
-                    SDL_SetRenderDrawColor(r, 150, 150, 170, 255);
+                    SDL_SetRenderDrawColor(r, 140, 135, 110, 255);
                 }
                 draw_string(r, buf, col_time, text_y_sm, 2);
 
@@ -740,7 +740,7 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
 
                 /* Pointer for current run */
                 if (is_current) {
-                    SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
+                    SDL_SetRenderDrawColor(r, 100, 200, 80, 255);
                     draw_string(r, "<", col_arrow, text_y, 3);
                 }
             } else {
@@ -926,7 +926,7 @@ int sdl_run_app(const GameConfig *config) {
         }
 
         /* Render */
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 10, 8, 5, 255);
         SDL_RenderClear(renderer);
 
         switch (game.state) {

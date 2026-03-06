@@ -72,18 +72,22 @@ var (
 	multBright = rgb(0xFF, 0xEE, 0x88)
 	multDeep   = rgb(0xBB, 0x77, 0x00)
 
-	// Tiles
-	wallCyan     = rgb(0x00, 0xDD, 0xCC)
-	wallDark     = rgb(0x00, 0x77, 0x66)
-	wallDeep     = rgb(0x00, 0x44, 0x3B)
-	wallTrace    = rgb(0x00, 0xFF, 0xEE)
-	floorNavy    = rgb(0x0D, 0x11, 0x22)
-	floorGrid    = rgb(0x15, 0x1E, 0x33)
-	floorDot     = rgb(0x1A, 0x25, 0x3B)
-	hazardRed    = rgb(0xFF, 0x22, 0x22)
-	hazardYellow = rgb(0xFF, 0xDD, 0x22)
-	hazardDark   = rgb(0xAA, 0x11, 0x11)
-	accentLine   = rgb(0x00, 0x55, 0x55)
+	// Tiles - forest/woodland palette
+	wallMoss      = rgb(0x5C, 0x7A, 0x3B) // mossy stone face
+	wallStoneMid  = rgb(0x6A, 0x65, 0x58) // mid-tone stone
+	wallStoneDark = rgb(0x3A, 0x3A, 0x30) // shadowed stone
+	wallStoneDeep = rgb(0x25, 0x25, 0x20) // deep rock shadow
+	wallMossLight = rgb(0x8F, 0xAF, 0x5A) // bright moss highlight
+	wallMortar    = rgb(0x2E, 0x2B, 0x24) // dark mortar between stones
+	floorDirt     = rgb(0x1A, 0x15, 0x10) // dark forest floor dirt
+	floorGrass    = rgb(0x1E, 0x2A, 0x15) // grass blade hints
+	floorLeaf     = rgb(0x2A, 0x22, 0x15) // fallen leaf accent
+	floorPebble   = rgb(0x30, 0x2C, 0x25) // small pebble highlight
+	hazardThorn   = rgb(0xAA, 0x33, 0x22) // thorny bramble red
+	hazardBramble = rgb(0x88, 0x66, 0x33) // bramble brown/woody
+	hazardDark    = rgb(0x55, 0x1A, 0x10) // dark thorn shadow
+	hazardVine    = rgb(0x3A, 0x55, 0x28) // dark green vine
+	accentMoss    = rgb(0x33, 0x44, 0x22) // soft moss patch
 
 	// FX
 	fxWhite  = rgb(0xFF, 0xFF, 0xFF)
@@ -1303,82 +1307,103 @@ func drawPowerupMultiplier(frame int) *image.NRGBA {
 func drawTileWall() *image.NRGBA {
 	img := newImg(32, 32)
 
-	// Base dark teal
-	fill(img, wallDeep)
+	// Base dark stone
+	fill(img, wallStoneDeep)
 
-	// Circuit board pattern
-	// Horizontal traces
-	for _, ty := range []int{4, 12, 20, 28} {
-		for x := 0; x < 32; x++ {
-			set(img, x, ty, wallDark)
-			set(img, x, ty+1, wallDark)
-		}
+	// Stone block layout: staggered rows of rough-hewn blocks
+	// Each row has horizontal mortar lines; blocks are offset per row
+	type stoneRow struct {
+		y0, y1  int
+		offsets []int // x positions of vertical mortar lines
 	}
-
-	// Vertical traces
-	for _, tx := range []int{4, 12, 20, 28} {
-		for y := 0; y < 32; y++ {
-			set(img, tx, y, wallDark)
-			set(img, tx+1, y, wallDark)
-		}
+	rows := []stoneRow{
+		{0, 7, []int{10, 22}},
+		{9, 16, []int{6, 16, 26}},
+		{18, 24, []int{12, 24}},
+		{26, 31, []int{8, 18, 28}},
 	}
 
-	// Bright trace highlights (the circuit lines)
-	for _, ty := range []int{7, 15, 23} {
-		for x := 2; x < 30; x++ {
-			set(img, x, ty, wallCyan)
+	// Draw stone faces
+	for _, row := range rows {
+		// Horizontal mortar lines
+		if row.y0 > 0 {
+			for x := 0; x < 32; x++ {
+				set(img, x, row.y0-1, wallMortar)
+				if row.y0 >= 2 {
+					set(img, x, row.y0-2, wallMortar)
+				}
+			}
 		}
-	}
-	for _, tx := range []int{7, 15, 23} {
-		for y := 2; y < 30; y++ {
-			set(img, tx, y, wallCyan)
-		}
-	}
 
-	// Intersection nodes (bright dots at trace crossings)
-	for _, tx := range []int{7, 15, 23} {
-		for _, ty := range []int{7, 15, 23} {
-			set(img, tx, ty, wallTrace)
-			set(img, tx+1, ty, wallTrace)
-			set(img, tx, ty+1, wallTrace)
-			set(img, tx+1, ty+1, wallTrace)
-		}
-	}
+		// Stone face fills
+		prevX := 0
+		allOffsets := append(row.offsets, 32)
+		for _, ox := range allOffsets {
+			// Vertical mortar between blocks
+			if ox < 32 {
+				for y := row.y0; y <= row.y1; y++ {
+					set(img, ox, y, wallMortar)
+					if ox+1 < 32 {
+						set(img, ox+1, y, wallMortar)
+					}
+				}
+			}
 
-	// Fill panels between traces with lighter teal
-	panels := [][4]int{
-		{1, 1, 6, 6}, {9, 1, 14, 6}, {17, 1, 22, 6}, {25, 1, 31, 6},
-		{1, 9, 6, 14}, {9, 9, 14, 14}, {17, 9, 22, 14}, {25, 9, 31, 14},
-		{1, 17, 6, 22}, {9, 17, 14, 22}, {17, 17, 22, 22}, {25, 17, 31, 22},
-		{1, 25, 6, 31}, {9, 25, 14, 31}, {17, 25, 22, 31}, {25, 25, 31, 31},
-	}
-	for _, p := range panels {
-		for y := p[1]; y < p[3]; y++ {
-			for x := p[0]; x < p[2]; x++ {
-				// Slight gradient for depth
-				t := float64(y-p[1]) / float64(p[3]-p[1])
-				c := blendColor(wallCyan, wallDark, t*0.5)
-				set(img, x, y, c)
+			// Fill stone face with gradient and variation
+			for y := row.y0; y <= row.y1 && y < 32; y++ {
+				for x := prevX; x < ox && x < 32; x++ {
+					// Vertical gradient on stone face (lighter top, darker bottom = lit from above)
+					t := float64(y-row.y0) / float64(row.y1-row.y0+1)
+					c := blendColor(wallStoneMid, wallStoneDark, t*0.7)
+
+					// Subtle noise: use pixel coords for deterministic variation
+					noise := ((x*7 + y*13 + x*y*3) % 17)
+					if noise < 3 {
+						c = blendColor(c, wallStoneDark, 0.15)
+					} else if noise > 14 {
+						c = blendColor(c, wallStoneMid, 0.15)
+					}
+
+					set(img, x, y, c)
+				}
+			}
+			prevX = ox + 2
+			if prevX > 32 {
+				prevX = 32
 			}
 		}
 	}
 
-	// Scanline effect (subtle)
-	for y := 0; y < 32; y += 2 {
-		for x := 0; x < 32; x++ {
-			c := get(img, x, y)
-			set(img, x, y, blendColor(c, wallDeep, 0.1))
+	// Add moss patches in mortar crevices and on stone faces
+	// Moss tends to grow in mortar lines and on upper edges of stones
+	mossSpots := [][2]int{
+		{2, 7}, {3, 7}, {4, 8}, {3, 8},
+		{14, 8}, {15, 7}, {15, 8}, {16, 8},
+		{27, 7}, {28, 8},
+		{0, 17}, {1, 16}, {1, 17}, {2, 17},
+		{20, 16}, {21, 17}, {22, 17}, {21, 16},
+		{9, 25}, {10, 24}, {10, 25}, {11, 25},
+		{25, 1}, {26, 0}, {26, 1},
+		{5, 18}, {6, 19}, {5, 19},
+		{29, 26}, {30, 25}, {30, 26},
+	}
+	for _, ms := range mossSpots {
+		noise := (ms[0]*11 + ms[1]*7) % 5
+		if noise < 3 {
+			set(img, ms[0], ms[1], wallMoss)
+		} else {
+			set(img, ms[0], ms[1], wallMossLight)
 		}
 	}
 
-	// Border/edge highlight
+	// Edge outline (dark border for tile seaming)
 	for x := 0; x < 32; x++ {
-		set(img, x, 0, wallDeep)
-		set(img, x, 31, wallDeep)
+		set(img, x, 0, wallStoneDeep)
+		set(img, x, 31, wallStoneDeep)
 	}
 	for y := 0; y < 32; y++ {
-		set(img, 0, y, wallDeep)
-		set(img, 31, y, wallDeep)
+		set(img, 0, y, wallStoneDeep)
+		set(img, 31, y, wallStoneDeep)
 	}
 
 	return img
@@ -1387,33 +1412,48 @@ func drawTileWall() *image.NRGBA {
 func drawTileFloor() *image.NRGBA {
 	img := newImg(32, 32)
 
-	fill(img, floorNavy)
+	// Dark forest floor - dirt base
+	fill(img, floorDirt)
 
-	// Subtle grid
-	for x := 0; x < 32; x++ {
-		set(img, x, 0, floorGrid)
-		set(img, x, 31, floorGrid)
-	}
+	// Scattered earth texture: slight pixel variation for organic feel
 	for y := 0; y < 32; y++ {
-		set(img, 0, y, floorGrid)
-		set(img, 31, y, floorGrid)
+		for x := 0; x < 32; x++ {
+			noise := ((x*13 + y*7 + x*y*5) % 23)
+			if noise < 4 {
+				// Slightly lighter dirt
+				set(img, x, y, blendColor(floorDirt, floorPebble, 0.2))
+			} else if noise > 19 {
+				// Slightly darker
+				set(img, x, y, blendColor(floorDirt, rgb(0x12, 0x0E, 0x0A), 0.3))
+			}
+		}
 	}
 
-	// Cross grid at center
-	for x := 0; x < 32; x++ {
-		set(img, x, 15, floorGrid)
-		set(img, x, 16, floorGrid)
+	// Sparse grass blade hints - thin vertical 1-2px streaks
+	grassBlades := [][2]int{
+		{3, 5}, {7, 12}, {14, 3}, {20, 8}, {26, 14},
+		{10, 22}, {18, 27}, {28, 4}, {5, 28}, {23, 20},
+		{1, 18}, {30, 24}, {16, 16},
 	}
-	for y := 0; y < 32; y++ {
-		set(img, 15, y, floorGrid)
-		set(img, 16, y, floorGrid)
+	for _, gb := range grassBlades {
+		set(img, gb[0], gb[1], floorGrass)
+		set(img, gb[0], gb[1]-1, blendColor(floorGrass, floorDirt, 0.4))
+		// Some blades are taller
+		if (gb[0]+gb[1])%3 == 0 {
+			set(img, gb[0], gb[1]-2, blendColor(floorGrass, floorDirt, 0.7))
+		}
 	}
 
-	// Corner dots
-	set(img, 0, 0, floorDot)
-	set(img, 31, 0, floorDot)
-	set(img, 0, 31, floorDot)
-	set(img, 31, 31, floorDot)
+	// Occasional small pebbles (1-2px dots)
+	pebbles := [][2]int{
+		{8, 7}, {22, 15}, {4, 25}, {27, 28}, {15, 11},
+	}
+	for _, pb := range pebbles {
+		set(img, pb[0], pb[1], floorPebble)
+		if (pb[0]+pb[1])%2 == 0 {
+			set(img, pb[0]+1, pb[1], blendColor(floorPebble, floorDirt, 0.5))
+		}
+	}
 
 	return img
 }
@@ -1421,17 +1461,57 @@ func drawTileFloor() *image.NRGBA {
 func drawTileHazard() *image.NRGBA {
 	img := newImg(32, 32)
 
-	// Chevron/warning stripe pattern
-	for y := 0; y < 32; y++ {
-		for x := 0; x < 32; x++ {
-			// Diagonal stripes
-			stripe := ((x + y) / 4) % 2
-			if stripe == 0 {
-				set(img, x, y, hazardRed)
-			} else {
-				set(img, x, y, hazardYellow)
-			}
+	// Base: dark earthy ground
+	fill(img, blendColor(floorDirt, hazardDark, 0.4))
+
+	// Thorny bramble patch - crossed woody stems with red thorns
+	// Main bramble stems: two crossing diagonal lines
+	// Stem 1: bottom-left to top-right
+	for i := 0; i < 30; i++ {
+		x := 1 + i
+		y := 29 - i
+		if x >= 0 && x < 32 && y >= 0 && y < 32 {
+			set(img, x, y, hazardBramble)
+			set(img, x, y+1, hazardBramble)
 		}
+	}
+	// Stem 2: top-left to bottom-right
+	for i := 0; i < 30; i++ {
+		x := 1 + i
+		y := 2 + i
+		if x >= 0 && x < 32 && y >= 0 && y < 32 {
+			set(img, x, y, hazardBramble)
+			set(img, x, y-1, hazardBramble)
+		}
+	}
+	// Stem 3: horizontal middle
+	for x := 4; x < 28; x++ {
+		set(img, x, 15, hazardBramble)
+		set(img, x, 16, hazardBramble)
+	}
+
+	// Small vine/leaf bits along stems
+	vineSpots := [][2]int{
+		{6, 6}, {7, 7}, {10, 10}, {22, 10}, {24, 12},
+		{5, 22}, {8, 19}, {20, 20}, {25, 23},
+		{12, 14}, {20, 14}, {14, 17}, {22, 17},
+	}
+	for _, vs := range vineSpots {
+		set(img, vs[0], vs[1], hazardVine)
+		set(img, vs[0]+1, vs[1], blendColor(hazardVine, hazardBramble, 0.5))
+	}
+
+	// Red thorns at intervals along the stems
+	thornSpots := [][2]int{
+		{4, 27}, {8, 23}, {12, 19}, {16, 15}, {20, 11}, {24, 7}, {28, 3},
+		{4, 5}, {8, 9}, {12, 13}, {20, 21}, {24, 25}, {28, 29},
+		{7, 15}, {11, 15}, {21, 16}, {25, 16},
+	}
+	for _, ts := range thornSpots {
+		set(img, ts[0], ts[1], hazardThorn)
+		// Thorn point pixels (small spikes)
+		set(img, ts[0]-1, ts[1]-1, hazardThorn)
+		set(img, ts[0]+1, ts[1]-1, hazardThorn)
 	}
 
 	// Darker border
@@ -1444,54 +1524,48 @@ func drawTileHazard() *image.NRGBA {
 		set(img, 31, y, hazardDark)
 	}
 
-	// Center warning symbol (!)
-	for y := 8; y < 20; y++ {
-		set(img, 15, y, rgb(0x11, 0x00, 0x00))
-		set(img, 16, y, rgb(0x11, 0x00, 0x00))
-	}
-	set(img, 15, 23, rgb(0x11, 0x00, 0x00))
-	set(img, 16, 23, rgb(0x11, 0x00, 0x00))
-	set(img, 15, 24, rgb(0x11, 0x00, 0x00))
-	set(img, 16, 24, rgb(0x11, 0x00, 0x00))
-
 	return img
 }
 
 func drawTileAccentA() *image.NRGBA {
 	img := newImg(32, 32)
 
-	fill(img, floorNavy)
+	// Same base as floor
+	fill(img, floorDirt)
 
-	// Grid like floor
-	for x := 0; x < 32; x++ {
-		set(img, x, 0, floorGrid)
-		set(img, x, 31, floorGrid)
-	}
+	// Earth texture
 	for y := 0; y < 32; y++ {
-		set(img, 0, y, floorGrid)
-		set(img, 31, y, floorGrid)
-	}
-
-	// Corner accent - top-left glowing corner
-	for y := 0; y < 8; y++ {
-		for x := 0; x < 8; x++ {
-			dist := float64(x+y) / 14.0
-			if dist < 1.0 {
-				c := blendColor(accentLine, floorNavy, dist)
-				set(img, x, y, c)
+		for x := 0; x < 32; x++ {
+			noise := ((x*13 + y*7 + x*y*5) % 23)
+			if noise < 4 {
+				set(img, x, y, blendColor(floorDirt, floorPebble, 0.2))
+			} else if noise > 19 {
+				set(img, x, y, blendColor(floorDirt, rgb(0x12, 0x0E, 0x0A), 0.3))
 			}
 		}
 	}
 
-	// Subtle grid cross
-	for x := 0; x < 32; x++ {
-		set(img, x, 15, floorGrid)
-		set(img, x, 16, floorGrid)
+	// Top-left moss cluster accent
+	mossCluster := [][2]int{
+		{1, 1}, {2, 1}, {3, 1}, {1, 2}, {2, 2}, {3, 2}, {4, 2},
+		{2, 3}, {3, 3}, {4, 3}, {5, 3},
+		{3, 4}, {4, 4}, {5, 4},
+		{4, 5}, {5, 5},
 	}
-	for y := 0; y < 32; y++ {
-		set(img, 15, y, floorGrid)
-		set(img, 16, y, floorGrid)
+	for _, mc := range mossCluster {
+		dist := float64(mc[0]+mc[1]) / 10.0
+		if dist < 0.4 {
+			set(img, mc[0], mc[1], wallMossLight)
+		} else {
+			set(img, mc[0], mc[1], accentMoss)
+		}
 	}
+
+	// A few grass blades near moss
+	set(img, 6, 4, floorGrass)
+	set(img, 6, 3, blendColor(floorGrass, floorDirt, 0.5))
+	set(img, 3, 6, floorGrass)
+	set(img, 3, 5, blendColor(floorGrass, floorDirt, 0.5))
 
 	return img
 }
@@ -1499,38 +1573,51 @@ func drawTileAccentA() *image.NRGBA {
 func drawTileAccentB() *image.NRGBA {
 	img := newImg(32, 32)
 
-	fill(img, floorNavy)
+	// Same base as floor
+	fill(img, floorDirt)
 
-	// Grid
-	for x := 0; x < 32; x++ {
-		set(img, x, 0, floorGrid)
-		set(img, x, 31, floorGrid)
-	}
+	// Earth texture
 	for y := 0; y < 32; y++ {
-		set(img, 0, y, floorGrid)
-		set(img, 31, y, floorGrid)
-	}
-
-	// Bottom-right accent
-	for y := 24; y < 32; y++ {
-		for x := 24; x < 32; x++ {
-			dist := float64((31-x)+(31-y)) / 14.0
-			if dist < 1.0 {
-				c := blendColor(accentLine, floorNavy, dist)
-				set(img, x, y, c)
+		for x := 0; x < 32; x++ {
+			noise := ((x*13 + y*7 + x*y*5) % 23)
+			if noise < 4 {
+				set(img, x, y, blendColor(floorDirt, floorPebble, 0.2))
+			} else if noise > 19 {
+				set(img, x, y, blendColor(floorDirt, rgb(0x12, 0x0E, 0x0A), 0.3))
 			}
 		}
 	}
 
-	// Subtle grid cross
-	for x := 0; x < 32; x++ {
-		set(img, x, 15, floorGrid)
-		set(img, x, 16, floorGrid)
+	// Bottom-right fallen leaf accent
+	// Small oval leaf shape in warm amber/brown
+	leafColor := rgb(0x8A, 0x55, 0x22) // warm brown leaf
+	leafLight := rgb(0xAA, 0x70, 0x30) // lighter leaf vein
+	leafDark := rgb(0x5A, 0x35, 0x15)  // darker leaf edge
+
+	// Simple leaf shape: ~6x4 oval tilted
+	leafPixels := [][3]int{ // x, y, shade (0=dark edge, 1=main, 2=vein/light)
+		{26, 25, 0}, {27, 25, 1}, {28, 25, 0},
+		{25, 26, 0}, {26, 26, 1}, {27, 26, 2}, {28, 26, 1}, {29, 26, 0},
+		{25, 27, 0}, {26, 27, 1}, {27, 27, 2}, {28, 27, 1}, {29, 27, 0},
+		{26, 28, 0}, {27, 28, 1}, {28, 28, 0},
+		{27, 29, 0},
 	}
-	for y := 0; y < 32; y++ {
-		set(img, 15, y, floorGrid)
-		set(img, 16, y, floorGrid)
+	for _, lp := range leafPixels {
+		var c color.NRGBA
+		switch lp[2] {
+		case 0:
+			c = leafDark
+		case 1:
+			c = leafColor
+		case 2:
+			c = leafLight
+		}
+		set(img, lp[0], lp[1], c)
 	}
+
+	// Small twig/stem from the leaf
+	set(img, 29, 24, floorPebble)
+	set(img, 30, 23, floorPebble)
 
 	return img
 }
