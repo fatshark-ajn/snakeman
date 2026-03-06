@@ -152,37 +152,91 @@ static void draw_tile(SDL_Renderer *r, SDL_Texture *tex, int gx, int gy) {
     draw_tex(r, tex, gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 }
 
-/* Simple digit rendering using SDL draw primitives (no font needed) */
+/* ------------------------------------------------------------------ */
+/* 5x7 bitmap font rendered with SDL draw primitives (no font needed)  */
+/* ------------------------------------------------------------------ */
+
+#define FONT_W 5
+#define FONT_H 7
+#define FONT_STRIDE (FONT_W + 1)   /* 1-pixel gap between characters */
+
 static void draw_char(SDL_Renderer *r, char c, int x, int y, int scale) {
-    /* 3x5 bitmap font for digits and some letters */
-    static const uint16_t glyphs[128] = {
-        ['0'] = 0x7B6F, ['1'] = 0x2C97, ['2'] = 0x73E7, ['3'] = 0x72CF,
-        ['4'] = 0x5BC9, ['5'] = 0x79CF, ['6'] = 0x79EF, ['7'] = 0x7249,
-        ['8'] = 0x7BEF, ['9'] = 0x7BCF,
-        ['A'] = 0x7BED, ['B'] = 0x7AEF, ['C'] = 0x7927, ['D'] = 0x6B6F,
-        ['E'] = 0x79E7, ['F'] = 0x79E4, ['G'] = 0x79AF, ['H'] = 0x5BED,
-        ['I'] = 0x7497, ['K'] = 0x5AEB, ['L'] = 0x4927, ['M'] = 0x5FED,
-        ['N'] = 0x5B6D, ['O'] = 0x7B6F, ['P'] = 0x7BC4, ['Q'] = 0x7B7B,
-        ['R'] = 0x7BEB, ['S'] = 0x79CF, ['T'] = 0x7492, ['U'] = 0x5B6F,
-        ['V'] = 0x5B52, ['W'] = 0x5BFF, ['X'] = 0x5AAD, ['Y'] = 0x5A92,
-        ['J'] = 0x24AF, ['Z'] = 0x724F,
-        [':'] = 0x0820, ['.'] = 0x0002, [' '] = 0x0000, ['!'] = 0x2482,
-        ['-'] = 0x01C0, ['+'] = 0x05D0, ['#'] = 0x5F5F,
-        ['x'] = 0x0AAA, ['%'] = 0x532D,
-        ['<'] = 0x2A22, ['>'] = 0x22A2, ['/'] = 0x1248,
-        ['('] = 0x2922, [')'] = 0x2494, ['_'] = 0x0007,
+    /*
+     * Each glyph is a 5-column x 7-row bitmap packed into the low 35 bits
+     * of a uint64_t.  Bit 34 is top-left, bit 0 is bottom-right.
+     *
+     *   Row 0:  bits 34-30  (top)
+     *   Row 1:  bits 29-25
+     *   ...
+     *   Row 6:  bits  4- 0  (bottom)
+     */
+    static const uint64_t glyphs[128] = {
+        ['0'] = 0x3A33AE62EULL,  /* .###. / #...# / #..## / #.#.# / ##..# / #...# / .###. */
+        ['1'] = 0x11842108EULL,  /* ..#.. / .##.. / ..#.. / ..#.. / ..#.. / ..#.. / .###. */
+        ['2'] = 0x3A213221FULL,  /* .###. / #...# / ....# / ..##. / .#... / #.... / ##### */
+        ['3'] = 0x3A213062EULL,  /* .###. / #...# / ....# / ..##. / ....# / #...# / .###. */
+        ['4'] = 0x08CA97C42ULL,  /* ...#. / ..##. / .#.#. / #..#. / ##### / ...#. / ...#. */
+        ['5'] = 0x7E1E0862EULL,  /* ##### / #.... / ####. / ....# / ....# / #...# / .###. */
+        ['6'] = 0x3A10F462EULL,  /* .###. / #.... / #.... / ####. / #...# / #...# / .###. */
+        ['7'] = 0x7C2222108ULL,  /* ##### / ....# / ...#. / ..#.. / .#... / .#... / .#... */
+        ['8'] = 0x3A317462EULL,  /* .###. / #...# / #...# / .###. / #...# / #...# / .###. */
+        ['9'] = 0x3A317844CULL,  /* .###. / #...# / #...# / .#### / ....# / ...#. / .##.. */
+
+        ['A'] = 0x11518FE31ULL,  /* ..#.. / .#.#. / #...# / #...# / ##### / #...# / #...# */
+        ['B'] = 0x7A31F463EULL,  /* ####. / #...# / #...# / ####. / #...# / #...# / ####. */
+        ['C'] = 0x3A308422EULL,  /* .###. / #...# / #.... / #.... / #.... / #...# / .###. */
+        ['D'] = 0x7A318C63EULL,  /* ####. / #...# / #...# / #...# / #...# / #...# / ####. */
+        ['E'] = 0x7E10E421FULL,  /* ##### / #.... / #.... / ###.. / #.... / #.... / ##### */
+        ['F'] = 0x7E10E4210ULL,  /* ##### / #.... / #.... / ###.. / #.... / #.... / #.... */
+        ['G'] = 0x3A30BC62FULL,  /* .###. / #...# / #.... / #.### / #...# / #...# / .#### */
+        ['H'] = 0x4631FC631ULL,  /* #...# / #...# / #...# / ##### / #...# / #...# / #...# */
+        ['I'] = 0x38842108EULL,  /* .###. / ..#.. / ..#.. / ..#.. / ..#.. / ..#.. / .###. */
+        ['J'] = 0x1C4210A4CULL,  /* ..### / ...#. / ...#. / ...#. / ...#. / #..#. / .##.. */
+        ['K'] = 0x4654C5251ULL,  /* #...# / #..#. / #.#.. / ##... / #.#.. / #..#. / #...# */
+        ['L'] = 0x42108421FULL,  /* #.... / #.... / #.... / #.... / #.... / #.... / ##### */
+        ['M'] = 0x4775AC631ULL,  /* #...# / ##.## / #.#.# / #.#.# / #...# / #...# / #...# */
+        ['N'] = 0x4739ACE71ULL,  /* #...# / ##..# / ##..# / #.#.# / #..## / #..## / #...# */
+        ['O'] = 0x3A318C62EULL,  /* .###. / #...# / #...# / #...# / #...# / #...# / .###. */
+        ['P'] = 0x7A31F4210ULL,  /* ####. / #...# / #...# / ####. / #.... / #.... / #.... */
+        ['Q'] = 0x3A318D64DULL,  /* .###. / #...# / #...# / #...# / #.#.# / #..#. / .##.# */
+        ['R'] = 0x7A31F5251ULL,  /* ####. / #...# / #...# / ####. / #.#.. / #..#. / #...# */
+        ['S'] = 0x3A307062EULL,  /* .###. / #...# / #.... / .###. / ....# / #...# / .###. */
+        ['T'] = 0x7C8421084ULL,  /* ##### / ..#.. / ..#.. / ..#.. / ..#.. / ..#.. / ..#.. */
+        ['U'] = 0x46318C62EULL,  /* #...# / #...# / #...# / #...# / #...# / #...# / .###. */
+        ['V'] = 0x463152884ULL,  /* #...# / #...# / #...# / .#.#. / .#.#. / ..#.. / ..#.. */
+        ['W'] = 0x4631AD6AAULL,  /* #...# / #...# / #...# / #.#.# / #.#.# / #.#.# / .#.#. */
+        ['X'] = 0x454421151ULL,  /* #...# / .#.#. / ..#.. / ..#.. / ..#.. / .#.#. / #...# */
+        ['Y'] = 0x454421084ULL,  /* #...# / .#.#. / ..#.. / ..#.. / ..#.. / ..#.. / ..#.. */
+        ['Z'] = 0x7C222221FULL,  /* ##### / ....# / ...#. / ..#.. / .#... / #.... / ##### */
+
+        [' '] = 0x000000000ULL,
+        ['.'] = 0x000000080ULL,  /* center dot on row 5 */
+        [':'] = 0x008000080ULL,  /* dots at row 1 and row 5 */
+        ['!'] = 0x108421004ULL,  /* ..#.. rows 0-4, blank row 5, ..#.. row 6 */
+        ['-'] = 0x0000F8000ULL,  /* middle row = ##### */
+        ['+'] = 0x0084F9080ULL,  /* ..#.. / ..#.. / ##### / ..#.. / ..#.. */
+        ['#'] = 0x295F57D4AULL,
+        ['x'] = 0x001151151ULL,  /* lowercase x: only bottom 5 rows */
+        ['%'] = 0x674421173ULL,  /* ##..# / ##.#. / ..#.. / ..#.. / .#.## / #..## */
+        ['<'] = 0x088882082ULL,
+        ['>'] = 0x208208888ULL,
+        ['/'] = 0x044222110ULL,  /* ....# / ...#. / ...#. / ..#.. / .#... / .#... / #.... */
+        ['('] = 0x111084104ULL,  /* ..#.. / .#... / #.... / #.... / #.... / .#... / ..#.. */
+        [')'] = 0x104108444ULL,  /* ..#.. / ...#. / ....# / ....# / ....# / ...#. / ..#.. */
+        ['_'] = 0x00000001FULL,  /* bottom row all on */
     };
-    uint16_t g;
+    uint64_t g;
     int row, col;
     unsigned char uc = (unsigned char)c;
 
     if (uc >= 128) return;
     g = glyphs[uc];
-    if (g == 0 && c != ' ' && c != '0') return;
+    if (g == 0 && c != ' ') return;
 
-    for (row = 0; row < 5; ++row) {
-        for (col = 0; col < 3; ++col) {
-            if (g & (1 << (14 - (row * 3 + col)))) {
+    for (row = 0; row < FONT_H; ++row) {
+        for (col = 0; col < FONT_W; ++col) {
+            int bit = (FONT_H - 1 - row) * FONT_W + (FONT_W - 1 - col);
+            if (g & (1ULL << bit)) {
                 SDL_Rect px = {x + col * scale, y + row * scale, scale, scale};
                 SDL_RenderFillRect(r, &px);
             }
@@ -193,13 +247,13 @@ static void draw_char(SDL_Renderer *r, char c, int x, int y, int scale) {
 static int string_width(const char *s, int scale) {
     int len = 0;
     while (s[len]) len++;
-    return len * 4 * scale;
+    return len * FONT_STRIDE * scale;
 }
 
 static void draw_string(SDL_Renderer *r, const char *s, int x, int y, int scale) {
     while (*s) {
         draw_char(r, *s, x, y, scale);
-        x += 4 * scale;
+        x += FONT_STRIDE * scale;
         s++;
     }
 }
@@ -377,14 +431,14 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
     SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
     draw_string(r, "SCORE", 8, y, 2);
     uint_to_str(buf, sizeof(buf), game->score.score);
-    draw_string(r, buf, 100, y, 2);
+    draw_string(r, buf, 76, y, 2);
 
     /* Combo */
     SDL_SetRenderDrawColor(r, 255, 200, 0, 255);
     {
         int combo_int = (int)(game->score.combo_multiplier * 10.0f + 0.5f);
         snprintf(buf, sizeof(buf), "x%d.%d", combo_int / 10, combo_int % 10);
-        draw_string(r, buf, 250, y, 2);
+        draw_string(r, buf, 220, y, 2);
     }
 
     /* Pickups */
@@ -396,13 +450,13 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
             if (game->world.pickups[i].active) remaining++;
         }
         snprintf(buf, sizeof(buf), "DOTS %d", remaining);
-        draw_string(r, buf, 400, y, 2);
+        draw_string(r, buf, 380, y, 2);
     }
 
     /* Time */
     SDL_SetRenderDrawColor(r, 150, 150, 255, 255);
     snprintf(buf, sizeof(buf), "TIME %d", (int)game->run_time_sec);
-    draw_string(r, buf, 600, y, 2);
+    draw_string(r, buf, 580, y, 2);
 
     /* Active powerup indicator */
     if (game->world.active_powerup.type != POWERUP_NONE) {
@@ -416,13 +470,13 @@ static void render_hud(SDL_Renderer *r, const Game *game) {
             default: break;
         }
         SDL_SetRenderDrawColor(r, 255, 100, 255, 255);
-        draw_string(r, pname, 800, y, 2);
+        draw_string(r, pname, 790, y, 2);
     }
 
     /* Length */
     SDL_SetRenderDrawColor(r, 100, 255, 100, 255);
     snprintf(buf, sizeof(buf), "LEN %d", game->world.player.length);
-    draw_string(r, buf, 1000, y, 2);
+    draw_string(r, buf, 990, y, 2);
 }
 
 static void render_running(SDL_Renderer *r, const Assets *a, const Game *game, int anim_frame) {
@@ -472,20 +526,20 @@ static void render_title(SDL_Renderer *r, const Assets *a) {
 
     /* Title text overlay */
     SDL_SetRenderDrawColor(r, 0, 255, 220, 255);
-    draw_string_centered(r, "SNAKEMAN", 200, 6);
+    draw_string_centered(r, "SNAKEMAN", 160, 5);
 
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
-    draw_string_centered(r, "PRESS ENTER TO START", 400, 3);
-    draw_string_centered(r, "Q TO QUIT", 460, 2);
+    draw_string_centered(r, "PRESS ENTER TO START", 310, 3);
+    draw_string_centered(r, "Q TO QUIT", 380, 2);
 
     SDL_SetRenderDrawColor(r, 100, 100, 120, 255);
-    draw_string_centered(r, "WASD OR ARROWS TO MOVE", 540, 2);
-    draw_string_centered(r, "P TO PAUSE  R TO RESTART", 570, 2);
+    draw_string_centered(r, "WASD OR ARROWS TO MOVE", 460, 2);
+    draw_string_centered(r, "P TO PAUSE  R TO RESTART", 490, 2);
 
     /* Random snake fact */
     SDL_SetRenderDrawColor(r, 180, 160, 80, 255);
-    draw_string_centered(r, "DID YOU KNOW...", 630, 2);
-    draw_string_centered(r, snake_facts[current_fact_index], 660, 2);
+    draw_string_centered(r, "DID YOU KNOW...", 580, 2);
+    draw_string_centered(r, snake_facts[current_fact_index], 610, 2);
 }
 
 static void render_paused(SDL_Renderer *r, const Assets *a, const Game *game, int anim_frame) {
@@ -506,11 +560,11 @@ static void render_paused(SDL_Renderer *r, const Assets *a, const Game *game, in
     }
 
     SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
-    draw_string_centered(r, "PAUSED", 300, 5);
+    draw_string_centered(r, "PAUSED", 280, 4);
 
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
-    draw_string_centered(r, "P TO RESUME", 400, 3);
-    draw_string_centered(r, "Q TO QUIT", 450, 2);
+    draw_string_centered(r, "P TO RESUME", 370, 3);
+    draw_string_centered(r, "Q TO QUIT", 440, 2);
 }
 
 static void render_game_over(SDL_Renderer *r, const Assets *a, const Game *game) {
@@ -524,7 +578,7 @@ static void render_game_over(SDL_Renderer *r, const Assets *a, const Game *game)
     }
 
     SDL_SetRenderDrawColor(r, 255, 60, 60, 255);
-    draw_string_centered(r, "GAME OVER", 150, 5);
+    draw_string_centered(r, "GAME OVER", 140, 4);
 
     /* Score as combined label + value, centered */
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
@@ -532,7 +586,7 @@ static void render_game_over(SDL_Renderer *r, const Assets *a, const Game *game)
         char score_line[80];
         uint_to_str(buf, sizeof(buf), game->score.score);
         snprintf(score_line, sizeof(score_line), "SCORE  %s", buf);
-        draw_string_centered(r, score_line, 280, 3);
+        draw_string_centered(r, score_line, 260, 3);
     }
 
     /* Stats block — all centered */
@@ -561,9 +615,9 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
     int i;
     int y_start;
     int row_h = 46;
-    /* Font heights: scale 3 -> 5*3 = 15px, scale 2 -> 5*2 = 10px */
-    int font_h_lg = 15;
-    int font_h_sm = 10;
+    /* Font heights: scale 3 -> 7*3 = 21px, scale 2 -> 7*2 = 14px */
+    int font_h_lg = FONT_H * 3;
+    int font_h_sm = FONT_H * 2;
 
     /* Dark background — ignore baked-in panel PNG to avoid misaligned bars */
     (void)a;
@@ -571,29 +625,29 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
     SDL_RenderClear(r);
 
     SDL_SetRenderDrawColor(r, 200, 100, 255, 255);
-    draw_string_centered(r, "HIGH SCORES", 40, 4);
+    draw_string_centered(r, "HIGH SCORES", 30, 3);
 
     /* New high score badge */
     if (game->last_run_rank == 0 && a->textures[TEX_UI_NEW_HIGH]) {
-        draw_tex(r, a->textures[TEX_UI_NEW_HIGH], (1280 - 512) / 2, 85, 512, 48);
+        draw_tex(r, a->textures[TEX_UI_NEW_HIGH], (1280 - 512) / 2, 65, 512, 48);
     } else if (game->last_run_rank == 0) {
         SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
-        draw_string_centered(r, "NEW HIGH SCORE!", 95, 3);
+        draw_string_centered(r, "NEW HIGH SCORE!", 75, 2);
     }
 
     /* Table layout: define column X positions relative to a left margin.
-       Table is ~720px wide, centered: left = (1280 - 720) / 2 = 280 */
+       Table is ~800px wide, centered: left = (1280 - 800) / 2 = 240 */
     {
-        int tbl_x = 280;  /* table left edge */
-        int tbl_w = 720;
+        int tbl_x = 240;  /* table left edge */
+        int tbl_w = 800;
         int col_rank  = tbl_x;
-        int col_score = tbl_x + 120;
-        int col_time  = tbl_x + 370;
-        int col_dots  = tbl_x + 520;
-        int col_arrow = tbl_x + 640;
+        int col_score = tbl_x + 130;
+        int col_time  = tbl_x + 400;
+        int col_dots  = tbl_x + 570;
+        int col_arrow = tbl_x + 710;
 
         /* Column headers */
-        y_start = 140;
+        y_start = 120;
         SDL_SetRenderDrawColor(r, 160, 140, 180, 255);
         draw_string(r, "RANK", col_rank + 10, y_start, 2);
         draw_string(r, "SCORE", col_score, y_start, 2);
@@ -603,11 +657,11 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
         /* Thin separator line under headers */
         SDL_SetRenderDrawColor(r, 80, 60, 100, 255);
         {
-            SDL_Rect sep = {tbl_x, y_start + 16, tbl_w, 1};
+            SDL_Rect sep = {tbl_x, y_start + 18, tbl_w, 1};
             SDL_RenderFillRect(r, &sep);
         }
 
-        y_start += 24;
+        y_start += 26;
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
         for (i = 0; i < 10; ++i) {
