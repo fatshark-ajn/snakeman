@@ -3,7 +3,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* ------------------------------------------------------------------ */
 /* Texture atlas indices                                               */
@@ -432,6 +434,33 @@ static void render_running(SDL_Renderer *r, const Assets *a, const Game *game, i
     render_hud(r, game);
 }
 
+/* ------------------------------------------------------------------ */
+/* Random snake facts for the title screen                             */
+/* ------------------------------------------------------------------ */
+
+static const char *snake_facts[] = {
+    "SNAKES ARE FOUND ON EVERY CONTINENT EXCEPT ANTARCTICA",
+    "THE RETICULATED PYTHON CAN GROW UP TO 6.95 METERS LONG",
+    "MOST SNAKES HAVE ONLY ONE FUNCTIONAL LUNG",
+    "SNAKES SMELL WITH THEIR TONGUES USING A JACOBSON ORGAN",
+    "SOME SNAKES CAN GO UP TO TWO YEARS WITHOUT EATING",
+    "THE KING COBRA CAN GROW UP TO 5.85 METERS LONG",
+    "THERE ARE MORE THAN 4100 KNOWN SPECIES OF SNAKES",
+    "SNAKES EVOLVED FROM LIZARDS OVER 100 MILLION YEARS AGO",
+    "SEA SNAKES CAN HOLD THEIR BREATH FOR UP TO 2 HOURS",
+    "THE SMALLEST SNAKE IS JUST 10 CM LONG",
+    "SNAKES SHED THEIR SKIN UP TO 12 TIMES PER YEAR",
+    "FLYING SNAKES CAN GLIDE UP TO 100 METERS THROUGH THE AIR",
+};
+
+#define NUM_SNAKE_FACTS (int)(sizeof(snake_facts) / sizeof(snake_facts[0]))
+
+static int current_fact_index = 0;
+
+static void pick_random_fact(void) {
+    current_fact_index = rand() % NUM_SNAKE_FACTS;
+}
+
 static void render_title(SDL_Renderer *r, const Assets *a) {
     /* Full-screen backdrop */
     if (a->textures[TEX_UI_TITLE]) {
@@ -452,6 +481,11 @@ static void render_title(SDL_Renderer *r, const Assets *a) {
     SDL_SetRenderDrawColor(r, 100, 100, 120, 255);
     draw_string_centered(r, "WASD OR ARROWS TO MOVE", 540, 2);
     draw_string_centered(r, "P TO PAUSE  R TO RESTART", 570, 2);
+
+    /* Random snake fact */
+    SDL_SetRenderDrawColor(r, 180, 160, 80, 255);
+    draw_string_centered(r, "DID YOU KNOW...", 630, 2);
+    draw_string_centered(r, snake_facts[current_fact_index], 660, 2);
 }
 
 static void render_paused(SDL_Renderer *r, const Assets *a, const Game *game, int anim_frame) {
@@ -783,6 +817,9 @@ int sdl_run_app(const GameConfig *config) {
     load_assets(renderer, &assets);
     game_init(&game, config);
 
+    srand((unsigned)time(NULL));
+    pick_random_fact();
+
     should_exit = 0;
     perf_freq = SDL_GetPerformanceFrequency();
     previous_counter = SDL_GetPerformanceCounter();
@@ -790,6 +827,8 @@ int sdl_run_app(const GameConfig *config) {
     fixed_dt = 1.0f / (float)config->target_fps;
     anim_accum = 0.0f;
     anim_frame = 0;
+
+    GameState prev_state = game.state;
 
     while (!should_exit && game.state != GAME_STATE_QUIT) {
         uint64_t current_counter = SDL_GetPerformanceCounter();
@@ -808,6 +847,12 @@ int sdl_run_app(const GameConfig *config) {
             game_update(&game, &input, fixed_dt);
             accumulator -= fixed_dt;
         }
+
+        /* Pick a new snake fact each time we enter the title screen */
+        if (game.state == GAME_STATE_TITLE && prev_state != GAME_STATE_TITLE) {
+            pick_random_fact();
+        }
+        prev_state = game.state;
 
         /* Animation timer (~10 FPS) */
         anim_accum += frame_dt;
