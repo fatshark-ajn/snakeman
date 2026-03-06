@@ -535,7 +535,7 @@ static void render_title(SDL_Renderer *r, const Assets *a) {
     }
 
     /* Title text overlay */
-    SDL_SetRenderDrawColor(r, 120, 210, 90, 255);
+    SDL_SetRenderDrawColor(r, 240, 255, 200, 255);
     draw_string_centered(r, "SNAKEMAN", 160, 5);
 
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
