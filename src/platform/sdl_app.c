@@ -526,14 +526,15 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
     char buf[64];
     int i;
     int y_start;
-    int row_h = 42;
+    int row_h = 46;
+    /* Font heights: scale 3 -> 5*3 = 15px, scale 2 -> 5*2 = 10px */
+    int font_h_lg = 15;
+    int font_h_sm = 10;
 
-    if (a->textures[TEX_UI_HIGHSCORES]) {
-        SDL_RenderCopy(r, a->textures[TEX_UI_HIGHSCORES], NULL, NULL);
-    } else {
-        SDL_SetRenderDrawColor(r, 34, 16, 44, 255);
-        SDL_RenderClear(r);
-    }
+    /* Dark background — ignore baked-in panel PNG to avoid misaligned bars */
+    (void)a;
+    SDL_SetRenderDrawColor(r, 18, 14, 28, 255);
+    SDL_RenderClear(r);
 
     SDL_SetRenderDrawColor(r, 200, 100, 255, 255);
     draw_string_centered(r, "HIGH SCORES", 40, 4);
@@ -550,6 +551,7 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
        Table is ~720px wide, centered: left = (1280 - 720) / 2 = 280 */
     {
         int tbl_x = 280;  /* table left edge */
+        int tbl_w = 720;
         int col_rank  = tbl_x;
         int col_score = tbl_x + 120;
         int col_time  = tbl_x + 370;
@@ -558,72 +560,100 @@ static void render_highscores(SDL_Renderer *r, const Assets *a, const Game *game
 
         /* Column headers */
         y_start = 140;
-        SDL_SetRenderDrawColor(r, 120, 100, 140, 255);
+        SDL_SetRenderDrawColor(r, 160, 140, 180, 255);
         draw_string(r, "RANK", col_rank + 10, y_start, 2);
         draw_string(r, "SCORE", col_score, y_start, 2);
         draw_string(r, "TIME", col_time, y_start, 2);
         draw_string(r, "DOTS", col_dots, y_start, 2);
 
-        y_start += 28;
+        /* Thin separator line under headers */
+        SDL_SetRenderDrawColor(r, 80, 60, 100, 255);
+        {
+            SDL_Rect sep = {tbl_x, y_start + 16, tbl_w, 1};
+            SDL_RenderFillRect(r, &sep);
+        }
+
+        y_start += 24;
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+
         for (i = 0; i < 10; ++i) {
             int y = y_start + i * row_h;
             int is_current = (i == game->last_run_rank);
+            int has_score = (game->highscores.entries[i].score > 0);
+            int text_y = y + (row_h - font_h_lg) / 2;  /* vertically centered */
+            int text_y_sm = y + (row_h - font_h_sm) / 2;  /* centered for small font */
 
-            /* Highlight bar behind current rank */
-            if (is_current) {
-                SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-                SDL_SetRenderDrawColor(r, 0, 255, 200, 40);
-                {
-                    SDL_Rect highlight = {col_rank - 4, y - 2, 720, row_h - 2};
-                    SDL_RenderFillRect(r, &highlight);
+            /* Row background bar */
+            {
+                SDL_Rect row_bg = {tbl_x - 4, y + 2, tbl_w + 8, row_h - 4};
+                if (is_current) {
+                    /* Highlighted current-run row */
+                    SDL_SetRenderDrawColor(r, 0, 255, 200, 50);
+                    SDL_RenderFillRect(r, &row_bg);
+                    /* Border for current row */
+                    SDL_SetRenderDrawColor(r, 0, 255, 200, 120);
+                    SDL_RenderDrawRect(r, &row_bg);
+                } else if (has_score) {
+                    /* Populated row — subtle dark bar */
+                    SDL_SetRenderDrawColor(r, 40, 35, 60, 180);
+                    SDL_RenderFillRect(r, &row_bg);
+                } else {
+                    /* Empty row — very dim */
+                    SDL_SetRenderDrawColor(r, 30, 25, 45, 120);
+                    SDL_RenderFillRect(r, &row_bg);
                 }
-                SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
-            } else {
-                SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
             }
 
-            /* Rank number — right-align within rank column */
+            /* Text color */
+            if (is_current) {
+                SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
+            } else if (has_score) {
+                SDL_SetRenderDrawColor(r, 210, 210, 220, 255);
+            } else {
+                SDL_SetRenderDrawColor(r, 70, 65, 90, 255);
+            }
+
+            /* Rank number */
             if (i < 9) {
                 snprintf(buf, sizeof(buf), " %d.", i + 1);
             } else {
                 snprintf(buf, sizeof(buf), "%d.", i + 1);
             }
-            draw_string(r, buf, col_rank, y, 3);
+            draw_string(r, buf, col_rank, text_y, 3);
 
-            if (game->highscores.entries[i].score > 0) {
+            if (has_score) {
                 /* Score */
                 uint_to_str(buf, sizeof(buf), game->highscores.entries[i].score);
-                draw_string(r, buf, col_score, y, 3);
+                draw_string(r, buf, col_score, text_y, 3);
 
-                /* Time */
+                /* Time (smaller font, vertically centered) */
                 {
                     uint32_t t = game->highscores.entries[i].time_sec;
                     snprintf(buf, sizeof(buf), "%d:%02d", (int)(t / 60), (int)(t % 60));
                 }
                 if (!is_current) {
-                    SDL_SetRenderDrawColor(r, 140, 140, 160, 255);
+                    SDL_SetRenderDrawColor(r, 150, 150, 170, 255);
                 }
-                draw_string(r, buf, col_time, y + 2, 2);
+                draw_string(r, buf, col_time, text_y_sm, 2);
 
                 /* Pickups */
                 snprintf(buf, sizeof(buf), "%d", (int)game->highscores.entries[i].pickups);
-                draw_string(r, buf, col_dots, y + 2, 2);
+                draw_string(r, buf, col_dots, text_y_sm, 2);
 
                 /* Pointer for current run */
                 if (is_current) {
                     SDL_SetRenderDrawColor(r, 0, 255, 200, 255);
-                    draw_string(r, "<", col_arrow, y, 3);
+                    draw_string(r, "<", col_arrow, text_y, 3);
                 }
             } else {
-                SDL_SetRenderDrawColor(r, 80, 80, 100, 255);
-                draw_string(r, "---", col_score, y, 3);
+                draw_string(r, "---", col_score, text_y, 3);
             }
         }
     }
 
     /* Instructions */
     {
-        int bot_y = y_start + 10 * row_h + 8;
+        int bot_y = y_start + 10 * row_h + 12;
         if (bot_y > 670) bot_y = 670;
         SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
         draw_string_centered(r, "ENTER RESTART   Q QUIT", bot_y, 2);
