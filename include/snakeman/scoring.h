@@ -25,6 +25,7 @@ typedef struct {
     float combo_default_window_sec;
     float max_combo_multiplier;
     uint32_t survival_seconds_accum;
+    uint32_t last_pickup_points;
 } ScoreState;
 
 typedef enum {

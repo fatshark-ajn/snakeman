@@ -46,9 +46,31 @@ static TransitionEvent pick_event_from_input(const Game *game, const InputState 
     return TRANSITION_EVENT_NONE;
 }
 
-void game_init(Game *game, const GameConfig *config) {
-    (void)config;
+static Direction input_to_direction(InputDirection d) {
+    switch (d) {
+        case INPUT_DIR_UP:    return DIR_UP;
+        case INPUT_DIR_DOWN:  return DIR_DOWN;
+        case INPUT_DIR_LEFT:  return DIR_LEFT;
+        case INPUT_DIR_RIGHT: return DIR_RIGHT;
+        default:              return (Direction)(-1);
+    }
+}
 
+static void start_new_run(Game *game) {
+    game->tick_count = 0;
+    game->run_time_sec = 0;
+    game->fixed_steps = 0;
+    game->second_fraction = 0.0f;
+    game->game_over_timer = 0.0f;
+    game->last_run_rank = -1;
+    score_init(&game->score);
+
+    /* Generate new seed from previous state */
+    game->seed = game->seed * 6364136223846793005ULL + 1442695040888963407ULL;
+    world_init(&game->world, game->seed);
+}
+
+void game_init(Game *game, const GameConfig *config) {
     if (game == NULL) {
         return;
     }
@@ -58,6 +80,9 @@ void game_init(Game *game, const GameConfig *config) {
     game->run_time_sec = 0;
     game->fixed_steps = 0;
     game->second_fraction = 0.0f;
+    game->game_over_timer = 0.0f;
+    game->seed = (config != NULL) ? config->seed : 1337;
+    game->last_run_rank = -1;
 
     score_init(&game->score);
     highscore_init(&game->highscores);
@@ -67,28 +92,81 @@ void game_init(Game *game, const GameConfig *config) {
 
 void game_update(Game *game, const InputState *input, float fixed_dt) {
     TransitionEvent event;
+    GameState prev_state;
 
     if (game == NULL || input == NULL || fixed_dt <= 0.0f) {
         return;
     }
 
+    prev_state = game->state;
     event = pick_event_from_input(game, input);
     game->state = state_next(game->state, event);
 
-    if (game->state != GAME_STATE_RUNNING) {
-        if (game->state == GAME_STATE_GAME_OVER) {
+    /* Initialize world on transition to RUNNING */
+    if (game->state == GAME_STATE_RUNNING && prev_state != GAME_STATE_RUNNING
+        && prev_state != GAME_STATE_PAUSED) {
+        start_new_run(game);
+    }
+
+    /* Reset game-over timer on entry */
+    if (game->state == GAME_STATE_GAME_OVER && prev_state != GAME_STATE_GAME_OVER) {
+        game->game_over_timer = 0.0f;
+    }
+
+    if (game->state == GAME_STATE_GAME_OVER) {
+        game->game_over_timer += fixed_dt;
+        if (game->game_over_timer >= 0.2f) {
             game->state = state_next(game->state, TRANSITION_EVENT_SHOW_HIGHSCORES);
         }
+        return;
+    }
+
+    /* On transition to HIGHSCORES, finalize and insert score */
+    if (game->state == GAME_STATE_HIGHSCORES && prev_state != GAME_STATE_HIGHSCORES) {
+        ScoreEntry entry = score_finalize_run(&game->score, game->run_time_sec, game->seed);
+        game->last_run_rank = highscore_try_insert(&game->highscores, entry);
+    }
+
+    if (game->state != GAME_STATE_RUNNING) {
         return;
     }
 
     game->tick_count += 1;
     game->fixed_steps += 1;
 
+    /* Run world simulation */
+    {
+        Direction dir = input_to_direction(input->direction);
+        int world_event = world_update(&game->world, dir, fixed_dt);
+
+        switch (world_event) {
+            case WORLD_EVENT_PICKUP:
+                score_on_event(&game->score, SCORE_EVENT_PICKUP);
+                break;
+            case WORLD_EVENT_RISK_PICKUP:
+                score_on_event(&game->score, SCORE_EVENT_PICKUP);
+                score_on_event(&game->score, SCORE_EVENT_RISK_PICKUP);
+                break;
+            case WORLD_EVENT_POWERUP:
+                if (game->world.active_powerup.type == POWERUP_MAGNET) {
+                    score_on_event(&game->score, SCORE_EVENT_MAGNET_PICKUP);
+                }
+                break;
+            case WORLD_EVENT_PLAYER_DIED:
+                game->state = state_next(game->state, TRANSITION_EVENT_PLAYER_DIED);
+                return;
+            case WORLD_EVENT_ALL_CLEARED:
+                game->state = state_next(game->state, TRANSITION_EVENT_RUN_COMPLETE);
+                return;
+            default:
+                break;
+        }
+    }
+
     score_update(&game->score, fixed_dt);
 
     game->second_fraction += fixed_dt;
-    if (game->second_fraction >= 1.0f) {
+    while (game->second_fraction >= 1.0f) {
         game->second_fraction -= 1.0f;
         game->run_time_sec += 1;
         score_on_event(&game->score, SCORE_EVENT_SURVIVAL_SECOND);

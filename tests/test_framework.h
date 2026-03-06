@@ -1,6 +1,7 @@
 #ifndef TEST_FRAMEWORK_H
 #define TEST_FRAMEWORK_H
 
+#include <math.h>
 #include <stdio.h>
 
 typedef void (*TestFn)(void);
@@ -23,6 +24,18 @@ extern int g_test_total;
         g_test_failures += 1; \
         printf("Assertion failed at %s:%d: %s (%d) != %s (%d)\n", \
                __FILE__, __LINE__, #actual, a_, #expected, e_); \
+        return; \
+    } \
+} while (0)
+
+#define ASSERT_EQ_FLOAT_NEAR(actual, expected, epsilon) do { \
+    float a_ = (float)(actual); \
+    float e_ = (float)(expected); \
+    float eps_ = (float)(epsilon); \
+    if (fabsf(a_ - e_) > eps_) { \
+        g_test_failures += 1; \
+        printf("Assertion failed at %s:%d: %s (%f) != %s (%f) within %f\n", \
+               __FILE__, __LINE__, #actual, (double)a_, #expected, (double)e_, (double)eps_); \
         return; \
     } \
 } while (0)

@@ -24,6 +24,7 @@ void score_init(ScoreState *score) {
     score->combo_default_window_sec = 3.5f;
     score->max_combo_multiplier = 1.0f;
     score->survival_seconds_accum = 0;
+    score->last_pickup_points = 0;
 }
 
 void score_update(ScoreState *score, float dt) {
@@ -48,7 +49,8 @@ void score_on_event(ScoreState *score, ScoreEventType event) {
     switch (event) {
         case SCORE_EVENT_PICKUP:
             score->pickups += 1;
-            score->score += pickup_points(score);
+            score->last_pickup_points = pickup_points(score);
+            score->score += score->last_pickup_points;
             score->combo_timer_sec = score->combo_default_window_sec;
             if (score->combo_multiplier < score->combo_cap) {
                 score->combo_multiplier += score->combo_increment;
@@ -67,9 +69,14 @@ void score_on_event(ScoreState *score, ScoreEventType event) {
         case SCORE_EVENT_MAGNET_PICKUP:
             score->score += 5;
             break;
-        case SCORE_EVENT_RISK_PICKUP:
-            score->score += 5;
+        case SCORE_EVENT_RISK_PICKUP: {
+            uint32_t base = score->last_pickup_points > 0
+                ? score->last_pickup_points
+                : pickup_points(score);
+            uint32_t bonus = (uint32_t)(base * 0.5f + 0.5f);
+            score->score += bonus;
             break;
+        }
         case SCORE_EVENT_NONE:
         default:
             break;

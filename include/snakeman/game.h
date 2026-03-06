@@ -5,6 +5,7 @@
 
 #include "snakeman/scoring.h"
 #include "snakeman/state.h"
+#include "snakeman/world.h"
 
 typedef enum {
     INPUT_DIR_NONE = 0,
@@ -36,8 +37,12 @@ typedef struct {
     uint32_t run_time_sec;
     uint32_t fixed_steps;
     float second_fraction;
+    float game_over_timer;
     ScoreState score;
     HighscoreTable highscores;
+    World world;
+    uint32_t seed;
+    int last_run_rank;       /* rank from highscore insert, -1 if not placed */
 } Game;
 
 void game_init(Game *game, const GameConfig *config);
